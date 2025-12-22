@@ -56,7 +56,6 @@ on:
         type: choice
         options:
           - Stable
-          - Dev
           - Other
         default: Dev
       kernelsu_branch_other:
