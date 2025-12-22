@@ -183,17 +183,19 @@ jobs:
             exit 1
           fi
 
-        if: ${{ inputs.kernelsu_branch == 'Stable' || inputs.kernelsu_variant == 'Next' }}
         run: |
-          # Determine the branch based on user input
-          if [[ "${{ inputs.kernelsu_variant }}" == "Next" ]]; then
-            BRANCH="main"
-          elif [[ "${{ inputs.kernelsu_branch }}" == "Other" && -n "${{ inputs.kernelsu_branch_other }}" ]]; then
-            BRANCH="${{ inputs.kernelsu_branch_other }}"
-          else
-            echo "Error: Custom branch not provided for 'Other'" >&2
+            if [[ "${{ inputs.kernelsu_variant }}" == "Next" ]]; then
+                BRANCH="main"
+            elif [[ "${{ inputs.kernelsu_branch }}" == "Dev" ]]; then
+                BRANCH="dev"
+            elif [[ "${{ inputs.kernelsu_branch }}" == "Other" && -n "${{ inputs.kernelsu_branch_other }}" ]]; then
+                BRANCH="${{ inputs.kernelsu_branch_other }}"
+            else
+                echo "Error: Invalid KernelSU branch configuration" >&2
             exit 1
-          fi
+            fi
+
+            echo "Using branch: $BRANCH"
           
           # Store the selected branch in GITHUB_ENV
           echo "KSU_BRANCH=$BRANCH" >> $GITHUB_ENV
