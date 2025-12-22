@@ -1,0 +1,179 @@
+name: Build and Release GKI Kernels ksuNext Sukisu
+
+permissions:
+  contents: write
+  actions: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_a12_510:
+        description: "Build a12 5.10?"
+        type: boolean
+        default: false
+      build_a13_510:
+        description: "Build a13 5.10?"
+        type: boolean
+        default: false
+      build_a13_515:
+        description: "Build a13 5.15?"
+        type: boolean
+        default: false
+      build_a14_515:
+        description: "Build a14 5.15?"
+        type: boolean
+        default: false
+      build_a14_61:
+        description: "Build a14 6.1?"
+        type: boolean
+        default: true
+      build_a15_66:
+        description: "Build a15 6.6?"
+        type: boolean
+        default: false
+      make_release:
+        description: "Create a release?"
+        type: boolean
+        default: true
+      kernelsu_variant:
+        description: "Choose KernelSU Variant"
+        type: choice
+        options:
+          - Next
+          - SukiSU
+        default: SukiSU
+      kernelsu_branch:
+        description: "Choose Branch"
+        type: choice
+        options:
+          - Stable
+          - Dev
+          - Other
+        default: Stable
+      kernelsu_branch_other:
+        description: "Custom branch/tag (if 'Other' selected)"
+        type: string
+        default: ""
+
+jobs:
+  # Strategy: Call reusable workflows based on inputs
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: a12-5-10
+            run: ${{ inputs.build_a12_510 }}
+            workflow: ./.github/workflows/kernel-a12-5.10.yml
+          - id: a13-5-10
+            run: ${{ inputs.build_a13_510 }}
+            workflow: ./.github/workflows/kernel-a13-5.10.yml
+          - id: a13-5-15
+            run: ${{ inputs.build_a13_515 }}
+            workflow: ./.github/workflows/kernel-a13-5.15.yml
+          - id: a14-5-15
+            run: ${{ inputs.build_a14_515 }}
+            workflow: ./.github/workflows/kernel-a14-5.15.yml
+          - id: a14-6-1
+            run: ${{ inputs.build_a14_61 }}
+            workflow: ./.github/workflows/kernel-a14-6.1.yml
+          - id: a15-6-6
+            run: ${{ inputs.build_a15_66 }}
+            workflow: ./.github/workflows/kernel-a15-6.6.yml
+    if: matrix.run
+    uses: ${{ matrix.workflow }}
+    secrets: inherit
+    with:
+      make_release: ${{ inputs.make_release }}
+      kernelsu_variant: ${{ inputs.kernelsu_variant }}
+      kernelsu_branch: ${{ inputs.kernelsu_branch }}
+      kernelsu_branch_other: ${{ inputs.kernelsu_branch_other }}
+
+  trigger-release:
+    runs-on: ubuntu-latest
+    needs: build
+    if: always() && inputs.make_release
+    env:
+      REPO_OWNER: MiRinFork
+      REPO_NAME: GKI_SukiSU_SUSFS
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set Environment Variables
+        run: |
+          echo "currentdate=$(date +"%Y%m%d-%H%M")" >> $GITHUB_ENV
+          
+          # Determine KSU Repo and Manager URL
+          if [ "${{ inputs.kernelsu_variant }}" == "Next" ]; then
+            echo "KSU_REPO=KernelSU-Next/KernelSU-Next" >> $GITHUB_ENV
+            echo "MGR_URL=https://github.com/KernelSU-Next/KernelSU-Next" >> $GITHUB_ENV
+          else
+            echo "KSU_REPO=SukiSU-Ultra/SukiSU-Ultra" >> $GITHUB_ENV
+            echo "MGR_URL=https://github.com/SukiSU-Ultra/SukiSU-Ultra" >> $GITHUB_ENV
+          fi
+
+      - name: Fetch Remote Metadata
+        run: |
+          REPO_URL="https://github.com/${{ env.KSU_REPO }}.git"
+          
+          # Handle Branching logic
+          if [[ "${{ inputs.kernelsu_branch }}" == "Other" ]]; then
+            KSU_REF="${{ inputs.kernelsu_branch_other }}"
+          elif [[ "${{ inputs.kernelsu_branch }}" == "Dev" ]]; then
+            KSU_REF=$(git ls-remote $REPO_URL refs/heads/next | awk '{print $1}')
+          else
+            KSU_REF=$(git ls-remote --tags --sort=-v:refname $REPO_URL | head -n1 | cut -d'/' -f3)
+          fi
+          
+          echo "KSU_REF=$KSU_REF" >> $GITHUB_ENV
+          echo "KSU_URL=https://github.com/${{ env.KSU_REPO }}/tree/$KSU_REF" >> $GITHUB_ENV
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./assets
+
+      - name: Prepare Release Notes
+        run: |
+          cat <<EOF > release_notes.md
+          > [!CAUTION]
+          > **Use at your own risk.** Untested build. Always \`fastboot boot\` before flashing.
+
+          ### Features
+          - **Variant**: ${{ inputs.kernelsu_variant }} (${{ inputs.kernelsu_branch }})
+          - **Manager**: [Download Here](${{ env.MGR_URL }})
+          - Manual Syscall Hooks & Wireguard & BBR
+          - Includes [baseband_guard.c](https://github.com/vc-teahouse/Baseband-guard)
+
+          ### Commit Metadata
+          - **KernelSU**: [${{ env.KSU_REF }}](${{ env.KSU_URL }})
+          - **Build Date**: ${{ env.currentdate }}
+          
+          <details>
+          <summary>Installation Note</summary>
+          Use HorizonKernelFlasher or SukiSU Ultra's internal installer. Do not use Kernel Flasher.
+          </details>
+          EOF
+
+      - name: Create Release
+        run: |
+          gh release create "${{ env.currentdate }}" \
+            --title "GKI-${{ inputs.kernelsu_variant }}-${{ env.currentdate }}" \
+            --notes-file release_notes.md \
+            --prerelease
+          
+          # Find all zip/img files in subdirectories and upload
+          find ./assets -type f \( -name "*.zip" -o -name "*.img" \) -exec gh release upload "${{ env.currentdate }}" {} +
+
+      - name: Notify Telegram
+        if: success()
+        env:
+          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          MSG="🚀 *New GKI Release* %0AVariant: ${{ inputs.kernelsu_variant }}%0ATag: ${{ env.currentdate }}%0A[View Release](https://github.com/${{ github.repository }}/releases/tag/${{ env.currentdate }})"
+          curl -s "https://api.telegram.org/bot${TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=${MSG}&parse_mode=Markdown"
