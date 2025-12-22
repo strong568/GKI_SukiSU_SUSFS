@@ -183,7 +183,7 @@ jobs:
             exit 1
           fi
 
-        
+        if: ${{ inputs.kernelsu_branch == 'Stable' || inputs.kernelsu_variant == 'Next' }}
         run: |
           # Determine the branch based on user input
           if [[ "${{ inputs.kernelsu_variant }}" == "Next" ]]; then
