@@ -183,15 +183,15 @@ jobs:
             exit 1
           fi
 
+        if: ${{ inputs.kernelsu_variant == 'Next' || inputs.kernelsu_branch == 'Other' }}
         run: |
+  # Determine the branch based on user input
             if [[ "${{ inputs.kernelsu_variant }}" == "Next" ]]; then
                 BRANCH="main"
-            elif [[ "${{ inputs.kernelsu_branch }}" == "Dev" ]]; then
-                BRANCH="dev"
             elif [[ "${{ inputs.kernelsu_branch }}" == "Other" && -n "${{ inputs.kernelsu_branch_other }}" ]]; then
                 BRANCH="${{ inputs.kernelsu_branch_other }}"
             else
-                echo "Error: Invalid KernelSU branch configuration" >&2
+                echo "Error: kernelsu_branch_other is required when branch is Other" >&2
             exit 1
             fi
 
