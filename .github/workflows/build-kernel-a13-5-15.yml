@@ -1,4 +1,4 @@
-name: 编译内核a13-5-15
+name: Compile kernel a13-5-15
 
 permissions:
   contents: write  # Allow writing to repository contents (for pushing tags)
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       kernelsu_variant:
-        description: "选择 KernelSU"
+        description: "Select KernelSU"
         required: true
         type: choice
         options:
@@ -18,35 +18,35 @@ on:
           - SukiSU
         default: SukiSU
       kernelsu_branch:
-        description: "选择 ksu 分支"
+        description: "Choose the KSU branch"
         required: true
         type: choice
         options:
-          - Stable(标准)
-          - Dev(开发)
-          - Other(其他/指定)
-        default: Dev(开发)
+          - Stable (Standard)
+          - Dev (Development)
+          - Other (Other/Specified)
+        default: Dev (Development)
       version:
-        description: '自定义版本名(如5.15.167后面的字符/留空则使用默认版本号)'
+        description: 'Custom version name (e.g., 5.15.178; leave the following characters / blank to use the default version number).)'
         required: false
         type: string
       use_zram:
-        description: '是否开启增加更多ZRAM算法?'
+        description: 'Should we enable adding more ZRAM algorithms?'
         required: true
         type: boolean
         default: true
       use_kpm:
-        description: '是否开启KPM功能?'
+        description: 'Should we enable the KPM feature?'
         required: true
         type: boolean
         default: true
       set_defbbr:
-        description: '是否将BBR设为默认拥塞算法?（实验性）'
+        description: 'Should BBR be set as the default congestion algorithm? (Experimental)'
         required: true
         type: boolean
         default: false
       get_manager:
-        description: '是否同时获取最新KSU管理器?（实验性功能，报错请关闭）'
+        description: 'Should I also get the latest KSU Manager? (Experimental feature, please disable if errors occur)'
         required: true
         type: boolean
         default: true
