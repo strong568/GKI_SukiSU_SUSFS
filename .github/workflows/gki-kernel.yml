@@ -149,7 +149,7 @@ jobs:
           #   cd ..
           # fi
           git clone https://github.com/ShirkNeko/SukiSU_patch.git
-          git clone https://github.com/MiRinChan/AnyKernel3.git
+          git clone https://github.com/strong568/AK3fuxi.git
 
       - name: Set CONFIG Environment Variable
         run: |
